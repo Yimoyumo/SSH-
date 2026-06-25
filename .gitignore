@@ -1,0 +1,39 @@
+# === Go ===
+*.exe
+*.exe~
+*.dll
+*.so
+*.dylib
+*.test
+*.out
+go.work
+
+# === Node / 前端 ===
+node_modules/
+frontend/dist/
+**/pnpm-store/
+
+# === Wails 构建产物 ===
+ssh-tool/build/bin/
+ssh-tool/build/windows/
+**/*.syso
+
+# === IDE / 编辑器 ===
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.DS_Store
+Thumbs.db
+
+# === 日志 / 运行时 ===
+*.log
+ssh-tool/app.log
+
+# === OpenCode / Agent 工作目录 ===
+.omo/
+
+# === 临时文件 ===
+*.tmp
+*.bak
