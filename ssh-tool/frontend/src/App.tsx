@@ -4,6 +4,7 @@ import ConnectionList from "./views/ConnectionList";
 import TerminalTabs from "./views/TerminalTabs";
 import FilePanel from "./views/FilePanel";
 import ConnectDialog from "./views/ConnectDialog";
+import TextEditor from "./views/TextEditor";
 import { useToast, ToastContainer } from "./views/Toast";
 import type { app } from "../wailsjs/go/models";
 
@@ -15,6 +16,7 @@ export default function App() {
   const [panel, setPanel] = useState<PanelType>("terminal");
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editing, setEditing] = useState<app.ConnectionConfig | null>(null);
+  const [editorTarget, setEditorTarget] = useState<{ sessionID: string; remotePath: string } | null>(null);
 
   useEffect(() => {
     ssh.refreshConnections();
@@ -114,7 +116,13 @@ export default function App() {
         ) : (
           <div className="content">
             <div className="content-panel">
-              <FilePanel sessionID={activeSessionID} toast={toast} />
+              <FilePanel
+                sessionID={activeSessionID}
+                toast={toast}
+                onEdit={(remotePath) => {
+                  if (activeSessionID) setEditorTarget({ sessionID: activeSessionID, remotePath });
+                }}
+              />
             </div>
           </div>
         )}
@@ -126,6 +134,14 @@ export default function App() {
         onClose={() => setDialogOpen(false)}
       />
       <ToastContainer toasts={toast.toasts} onDismiss={toast.dismiss} />
+      {editorTarget ? (
+        <TextEditor
+          sessionID={editorTarget.sessionID}
+          remotePath={editorTarget.remotePath}
+          toast={toast}
+          onClose={() => setEditorTarget(null)}
+        />
+      ) : null}
     </div>
   );
 }

@@ -1,6 +1,7 @@
 import { useEffect } from "react";
 import type { TerminalTab } from "../hooks/useSSH";
 import TerminalView from "./Terminal";
+import "./TerminalTabs.css";
 
 interface TerminalTabsProps {
   tabs: TerminalTab[];
@@ -82,3 +83,4 @@ export default function TerminalTabs({
     </>
   );
 }
+

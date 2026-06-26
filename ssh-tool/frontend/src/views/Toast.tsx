@@ -1,4 +1,5 @@
 import { useEffect, useState, useCallback } from "react";
+import "./Toast.css";
 
 export interface ToastItem {
   id: number;
@@ -65,3 +66,4 @@ export function ToastContainer({
     </div>
   );
 }
+

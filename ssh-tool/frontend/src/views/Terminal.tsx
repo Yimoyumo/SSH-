@@ -5,6 +5,7 @@ import { WebglAddon } from "@xterm/addon-webgl";
 import * as App from "../../wailsjs/go/app/App";
 import { EventsOn, EventsOff, ClipboardSetText, ClipboardGetText } from "../../wailsjs/runtime/runtime";
 import "@xterm/xterm/css/xterm.css";
+import "./Terminal.css";
 
 interface TerminalViewProps {
   terminalID: string;
@@ -144,3 +145,4 @@ export default function TerminalView({ terminalID, visible }: TerminalViewProps)
 
   return <div className="terminal-wrap" ref={containerRef} />;
 }
+

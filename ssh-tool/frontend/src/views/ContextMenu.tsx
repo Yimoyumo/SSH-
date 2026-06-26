@@ -1,4 +1,5 @@
 import { useEffect, useRef } from "react";
+import "./ContextMenu.css";
 
 export interface MenuItem {
   label: string;
@@ -67,3 +68,4 @@ export default function ContextMenu({ x, y, items, onClose }: ContextMenuProps) 
     </div>
   );
 }
+

@@ -1,5 +1,6 @@
 import { useState } from "react";
 import type { app } from "../../wailsjs/go/models";
+import "./ConnectionList.css";
 
 interface ConnectionListProps {
   connections: app.ConnectionConfig[];
@@ -94,3 +95,4 @@ export default function ConnectionList({
     </div>
   );
 }
+

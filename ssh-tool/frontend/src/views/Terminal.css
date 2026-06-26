@@ -1,0 +1,12 @@
+/* Terminal — xterm 容器 */
+.terminal-wrap {
+  flex: 1;
+  padding: 6px;
+  overflow: hidden;
+}
+.terminal-wrap .xterm {
+  height: 100%;
+}
+.terminal-wrap .xterm-viewport {
+  overflow-y: auto !important;
+}

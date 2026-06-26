@@ -74,6 +74,14 @@ export function SftpMkdir(arg1, arg2) {
   return window['go']['app']['App']['SftpMkdir'](arg1, arg2);
 }
 
+export function SftpMkfile(arg1, arg2) {
+  return window['go']['app']['App']['SftpMkfile'](arg1, arg2);
+}
+
+export function SftpReadText(arg1, arg2) {
+  return window['go']['app']['App']['SftpReadText'](arg1, arg2);
+}
+
 export function SftpRename(arg1, arg2, arg3) {
   return window['go']['app']['App']['SftpRename'](arg1, arg2, arg3);
 }
@@ -84,6 +92,10 @@ export function SftpUpload(arg1, arg2, arg3, arg4) {
 
 export function SftpUploadLocalFile(arg1, arg2, arg3, arg4) {
   return window['go']['app']['App']['SftpUploadLocalFile'](arg1, arg2, arg3, arg4);
+}
+
+export function SftpWriteText(arg1, arg2, arg3) {
+  return window['go']['app']['App']['SftpWriteText'](arg1, arg2, arg3);
 }
 
 export function WriteTerminal(arg1, arg2) {

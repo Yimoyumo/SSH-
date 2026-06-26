@@ -2,13 +2,10 @@ package app
 
 import (
 	"context"
-	"encoding/base64"
-	"errors"
 	"fmt"
 	"io"
 	"log"
 	"os"
-	"path"
 	"path/filepath"
 	"sync"
 
@@ -144,41 +141,8 @@ func streamCopy(dst io.Writer, src io.Reader, total int64, jobID string, ctx con
 	}
 }
 
-// SftpUpload 上传文件内容(base64 编码)到远程路径。返回写入字节数。
-// 通过事件 sftp:progress:<jobID> 推送进度 [written, total]。
-func (a *App) SftpUpload(sessionID, contentBase64, remotePath, jobID string) (int, error) {
-	log.Printf("sftpUpload: session=%s remote=%s b64len=%d job=%s", sessionID, remotePath, len(contentBase64), jobID)
-	sess, err := a.getSession(sessionID)
-	if err != nil {
-		return 0, err
-	}
-	sc, err := sess.ensureSftp()
-	if err != nil {
-		return 0, err
-	}
-	sc.mu.Lock()
-	defer sc.mu.Unlock()
-
-	content, err := base64.StdEncoding.DecodeString(contentBase64)
-	if err != nil {
-		return 0, fmt.Errorf("decode base64: %w", err)
-	}
-
-	if err := sc.client.MkdirAll(path.Dir(remotePath)); err != nil {
-		return 0, fmt.Errorf("mkdir remote: %w", err)
-	}
-	w, err := sc.client.Create(remotePath)
-	if err != nil {
-		return 0, fmt.Errorf("create remote %s: %w", remotePath, err)
-	}
-	defer w.Close()
-
-	total := int64(len(content))
-	n, err := streamCopy(w, bytesReader(content), total, jobID, a.ctx)
-	return int(n), err
-}
-
 // bytesReader 把 []byte 包成 io.Reader(避免 import bytes 的命名冲突)。
+// 供 sftp_manage.go 的 SftpUpload 使用。
 func bytesReader(b []byte) io.Reader {
 	return &byteSliceReader{b: b}
 }
@@ -197,102 +161,13 @@ func (r *byteSliceReader) Read(p []byte) (int, error) {
 	return n, nil
 }
 
-// SftpDelete 删除远程文件或目录。
-func (a *App) SftpDelete(sessionID, remotePath string, isDir bool) error {
-	log.Printf("sftpDelete: session=%s path=%s isDir=%v", sessionID, remotePath, isDir)
-	sess, err := a.getSession(sessionID)
-	if err != nil {
-		return err
-	}
-	sc, err := sess.ensureSftp()
-	if err != nil {
-		return err
-	}
-	sc.mu.Lock()
-	defer sc.mu.Unlock()
-	if isDir {
-		return sc.client.RemoveDirectory(remotePath)
-	}
-	return sc.client.Remove(remotePath)
-}
-
-// SftpRename 重命名远程文件或目录。
-func (a *App) SftpRename(sessionID, oldPath, newPath string) error {
-	log.Printf("sftpRename: session=%s %s -> %s", sessionID, oldPath, newPath)
-	sess, err := a.getSession(sessionID)
-	if err != nil {
-		return err
-	}
-	sc, err := sess.ensureSftp()
-	if err != nil {
-		return err
-	}
-	sc.mu.Lock()
-	defer sc.mu.Unlock()
-	return sc.client.Rename(oldPath, newPath)
-}
-
-// SftpMkdir 新建远程目录。
-func (a *App) SftpMkdir(sessionID, remotePath string) error {
-	log.Printf("sftpMkdir: session=%s path=%s", sessionID, remotePath)
-	sess, err := a.getSession(sessionID)
-	if err != nil {
-		return err
-	}
-	sc, err := sess.ensureSftp()
-	if err != nil {
-		return err
-	}
-	sc.mu.Lock()
-	defer sc.mu.Unlock()
-	return sc.client.Mkdir(remotePath)
-}
-
-// SftpUploadLocalFile 从本地路径读文件直接上传到远程,不经前端中转。
-// 避免 Wails IPC 传输大字符串的截断问题。通过事件推送进度。
-func (a *App) SftpUploadLocalFile(sessionID, localPath, remotePath, jobID string) (int64, error) {
-	log.Printf("sftpUploadLocalFile: session=%s local=%s remote=%s job=%s", sessionID, localPath, remotePath, jobID)
-	sess, err := a.getSession(sessionID)
-	if err != nil {
-		return 0, err
-	}
-	sc, err := sess.ensureSftp()
-	if err != nil {
-		return 0, err
-	}
-	sc.mu.Lock()
-	defer sc.mu.Unlock()
-
-	r, err := os.Open(localPath)
-	if err != nil {
-		return 0, fmt.Errorf("open local %s: %w", localPath, err)
-	}
-	defer r.Close()
-
-	if err := sc.client.MkdirAll(path.Dir(remotePath)); err != nil {
-		return 0, fmt.Errorf("mkdir remote: %w", err)
-	}
-	w, err := sc.client.Create(remotePath)
-	if err != nil {
-		return 0, fmt.Errorf("create remote %s: %w", remotePath, err)
-	}
-	defer w.Close()
-
-	info, ierr := r.Stat()
-	total := int64(0)
-	if ierr == nil {
-		total = info.Size()
-	}
-	return streamCopy(w, r, total, jobID, a.ctx)
-}
-
 // --- Session 方法 ---
 
 func (s *Session) ensureSftp() (*sftpSession, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	if s.closed {
-		return nil, errors.New("session closed")
+		return nil, fmt.Errorf("session closed")
 	}
 	if s.sftp == nil {
 		c, err := sftp.NewClient(s.sshConn.client)
@@ -314,7 +189,7 @@ func (a *App) getSession(sessionID string) (*Session, error) {
 	sess, ok := a.sessions[sessionID]
 	a.mu.RUnlock()
 	if !ok {
-		return nil, errors.New("session not found")
+		return nil, fmt.Errorf("session not found")
 	}
 	return sess, nil
 }

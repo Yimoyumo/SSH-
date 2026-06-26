@@ -38,10 +38,16 @@ export function SftpList(arg1:string,arg2:string):Promise<Array<app.FileEntry>>;
 
 export function SftpMkdir(arg1:string,arg2:string):Promise<void>;
 
+export function SftpMkfile(arg1:string,arg2:string):Promise<void>;
+
+export function SftpReadText(arg1:string,arg2:string):Promise<string>;
+
 export function SftpRename(arg1:string,arg2:string,arg3:string):Promise<void>;
 
 export function SftpUpload(arg1:string,arg2:string,arg3:string,arg4:string):Promise<number>;
 
 export function SftpUploadLocalFile(arg1:string,arg2:string,arg3:string,arg4:string):Promise<number>;
+
+export function SftpWriteText(arg1:string,arg2:string,arg3:string):Promise<void>;
 
 export function WriteTerminal(arg1:string,arg2:string):Promise<void>;

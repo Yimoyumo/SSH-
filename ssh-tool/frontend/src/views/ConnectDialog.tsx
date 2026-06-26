@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
 import type { app } from "../../wailsjs/go/models";
+import "./ConnectDialog.css";
 
 interface ConnectDialogProps {
   open: boolean;
@@ -174,3 +175,4 @@ export default function ConnectDialog({ open, editing, onSave, onClose }: Connec
     </div>
   );
 }
+

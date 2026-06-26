@@ -3,10 +3,12 @@ import * as App from "../../wailsjs/go/app/App";
 import { EventsOn, EventsOff } from "../../wailsjs/runtime/runtime";
 import type { app } from "../../wailsjs/go/models";
 import ContextMenu, { type MenuEntry } from "./ContextMenu";
+import "./FilePanel.css";
 
 interface FilePanelProps {
   sessionID: string | null;
   toast: ReturnType<typeof import("./Toast").useToast>;
+  onEdit?: (remotePath: string) => void;
 }
 
 function formatSize(bytes: number): string {
@@ -29,7 +31,7 @@ interface MenuState {
   items: MenuEntry[];
 }
 
-export default function FilePanel({ sessionID, toast }: FilePanelProps) {
+export default function FilePanel({ sessionID, toast, onEdit }: FilePanelProps) {
   const [path, setPath] = useState("/root");
   const [entries, setEntries] = useState<app.FileEntry[]>([]);
   const [loading, setLoading] = useState(false);
@@ -139,6 +141,18 @@ export default function FilePanel({ sessionID, toast }: FilePanelProps) {
     }
   };
 
+  const doMkfile = async () => {
+    const name = window.prompt("文件名");
+    if (!name || !sessionID) return;
+    try {
+      await App.SftpMkfile(sessionID, joinPath(name));
+      await loadDir(path);
+      toast.show("success", "已新建", name);
+    } catch (e) {
+      toast.show("error", "新建文件失败", String(e));
+    }
+  };
+
   const uploadFile = async (file: { name: string; path?: string }) => {
     if (!sessionID) return;
     const remotePath = joinPath(file.name);
@@ -190,6 +204,7 @@ export default function FilePanel({ sessionID, toast }: FilePanelProps) {
         ]
       : [
           { label: "下载", icon: "⬇", onClick: () => download(entry) },
+          { label: "编辑", icon: "✎", onClick: () => onEdit?.(joinPath(entry.name)) },
           { label: "重命名", icon: "✎", onClick: () => { setRenaming(entry.name); setRenameVal(entry.name); } },
           { divider: true },
           { label: "删除", icon: "🗑", danger: true, onClick: () => doDelete(entry) },
@@ -205,6 +220,7 @@ export default function FilePanel({ sessionID, toast }: FilePanelProps) {
       items: [
         { label: "上传文件", icon: "⬆", onClick: handleFilePick },
         { label: "新建目录", icon: "📁", onClick: doMkdir },
+        { label: "新建文件", icon: "📄", onClick: doMkfile },
         { divider: true },
         { label: "刷新", icon: "⟳", onClick: () => loadDir(path) },
       ],

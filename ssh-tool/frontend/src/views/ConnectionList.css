@@ -1,0 +1,86 @@
+/* ConnectionList — 侧栏 + 连接列表 */
+.sidebar {
+  width: 220px;
+  background: var(--bg-panel);
+  border-right: 1px solid var(--border);
+  display: flex;
+  flex-direction: column;
+  flex-shrink: 0;
+  transition: width var(--transition);
+  overflow: hidden;
+}
+.sidebar.collapsed {
+  width: 40px;
+}
+.sidebar.collapsed .sidebar-title,
+.sidebar.collapsed .sidebar-list,
+.sidebar.collapsed .sidebar-footer span {
+  display: none;
+}
+.sidebar.collapsed .conn-item {
+  padding: 9px 0;
+  justify-content: center;
+}
+.sidebar.collapsed .conn-item .conn-name,
+.sidebar.collapsed .conn-item .conn-host,
+.sidebar.collapsed .conn-item .conn-actions {
+  display: none;
+}
+.collapse-btn {
+  flex-shrink: 0;
+}
+.sidebar-header {
+  padding: 14px 16px;
+  border-bottom: 1px solid var(--border);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+.sidebar-title {
+  font-size: 12px;
+  color: var(--text-dim);
+  text-transform: uppercase;
+  letter-spacing: 1px;
+}
+.sidebar-list {
+  flex: 1;
+  overflow-y: auto;
+  padding: 6px 0;
+}
+.conn-item {
+  padding: 9px 16px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  transition: var(--transition);
+  border-left: 2px solid transparent;
+}
+.conn-item:hover {
+  background: var(--bg-hover);
+}
+.conn-item.active {
+  background: var(--bg-hover);
+  border-left-color: var(--accent);
+}
+.conn-item .conn-name {
+  flex: 1;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.conn-item .conn-host {
+  font-size: 11px;
+  color: var(--text-dim);
+}
+.conn-actions {
+  opacity: 0;
+  transition: var(--transition);
+}
+.conn-item:hover .conn-actions {
+  opacity: 1;
+}
+.sidebar-footer {
+  padding: 10px 16px;
+  border-top: 1px solid var(--border);
+}

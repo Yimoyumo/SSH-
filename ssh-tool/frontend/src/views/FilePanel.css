@@ -1,0 +1,63 @@
+/* FilePanel — SFTP 文件浏览 + 拖拽上传 */
+.file-toolbar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 12px;
+  background: var(--bg-elevated);
+  border-bottom: 1px solid var(--border);
+  flex-shrink: 0;
+}
+.file-toolbar .path-input {
+  flex: 1;
+  font-family: "JetBrains Mono", Consolas, monospace;
+  font-size: 12px;
+}
+.file-list {
+  flex: 1;
+  overflow-y: auto;
+  padding: 4px 0;
+}
+.file-row {
+  display: flex;
+  align-items: center;
+  padding: 6px 16px;
+  gap: 12px;
+  cursor: pointer;
+  transition: var(--transition);
+  font-size: 12px;
+}
+.file-row:hover {
+  background: var(--bg-hover);
+}
+.file-row .file-icon {
+  width: 16px;
+  text-align: center;
+}
+.file-row .file-name {
+  flex: 1;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.file-row .file-size {
+  color: var(--text-dim);
+  width: 80px;
+  text-align: right;
+}
+.file-row .file-time {
+  color: var(--text-dim);
+  width: 130px;
+  text-align: right;
+}
+.file-drop-zone {
+  flex: 1;
+  border: 2px dashed transparent;
+  display: flex;
+  flex-direction: column;
+  transition: var(--transition);
+}
+.file-drop-zone.dragover {
+  border-color: var(--accent);
+  background: rgba(78, 201, 176, 0.05);
+}
