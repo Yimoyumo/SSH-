@@ -1,0 +1,32 @@
+/* ContextMenu — 右键菜单 */
+.context-menu {
+  position: fixed;
+  background: var(--bg-elevated);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.5);
+  padding: 4px 0;
+  z-index: 300;
+  min-width: 140px;
+  font-size: 12px;
+}
+.context-menu-item {
+  padding: 7px 16px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  transition: var(--transition);
+}
+.context-menu-item:hover {
+  background: var(--bg-hover);
+  color: var(--accent);
+}
+.context-menu-item.danger:hover {
+  color: var(--danger);
+}
+.context-menu-divider {
+  height: 1px;
+  background: var(--border);
+  margin: 4px 0;
+}

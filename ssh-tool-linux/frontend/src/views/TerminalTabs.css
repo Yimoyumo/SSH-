@@ -1,0 +1,54 @@
+/* TerminalTabs — 多标签栏 */
+.tabbar {
+  display: flex;
+  align-items: stretch;
+  background: var(--bg-elevated);
+  border-bottom: 1px solid var(--border);
+  height: 36px;
+  flex-shrink: 0;
+}
+.tab {
+  padding: 0 14px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  cursor: pointer;
+  border-right: 1px solid var(--border);
+  transition: var(--transition);
+  max-width: 180px;
+}
+.tab:hover {
+  background: var(--bg-hover);
+}
+.tab.active {
+  background: var(--bg-base);
+  border-bottom: 2px solid var(--accent);
+}
+.tab .tab-title {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  font-size: 12px;
+}
+.tab .tab-close {
+  opacity: 0.5;
+  font-size: 14px;
+  line-height: 1;
+}
+.tab .tab-close:hover {
+  opacity: 1;
+  color: var(--danger);
+}
+.tab-add {
+  display: flex;
+  align-items: center;
+  padding: 0 12px;
+  cursor: pointer;
+  color: var(--text-dim);
+  font-size: 16px;
+  transition: var(--transition);
+}
+.tab-add:hover {
+  color: var(--accent);
+  background: var(--bg-hover);
+}

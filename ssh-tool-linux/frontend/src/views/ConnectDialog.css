@@ -1,0 +1,50 @@
+/* ConnectDialog — 模态对话框基础样式 */
+.modal-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.6);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 100;
+}
+.modal {
+  background: var(--bg-panel);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  width: 420px;
+  max-width: 90vw;
+  padding: 24px;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4);
+}
+.modal h2 {
+  margin: 0 0 20px;
+  font-size: 16px;
+  font-weight: 500;
+}
+.modal .field {
+  margin-bottom: 14px;
+}
+.modal .field label {
+  display: block;
+  margin-bottom: 4px;
+  font-size: 12px;
+  color: var(--text-dim);
+}
+.modal .field input,
+.modal .field select {
+  width: 100%;
+}
+.modal .field-row {
+  display: flex;
+  gap: 12px;
+}
+.modal .field-row .field {
+  flex: 1;
+}
+.modal-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+  margin-top: 20px;
+}

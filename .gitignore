@@ -12,6 +12,7 @@ go.work
 node_modules/
 frontend/dist/
 **/pnpm-store/
+**/.pnpm-store/
 
 # === Wails 构建产物 ===
 ssh-tool/build/bin/

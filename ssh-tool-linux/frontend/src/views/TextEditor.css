@@ -1,0 +1,70 @@
+/* 文本编辑器模态 — 从 style.css 拆出,避免大文件 edit 重复执行 bug */
+.modal.editor-modal {
+  width: min(900px, 90vw);
+  height: min(680px, 85vh);
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+.editor-toolbar {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 14px;
+  border-bottom: 1px solid var(--border);
+  background: var(--bg-elevated);
+  flex-shrink: 0;
+}
+.editor-title {
+  font-size: 13px;
+  font-weight: 500;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 260px;
+}
+.editor-dirty {
+  color: var(--accent);
+}
+.editor-path {
+  flex: 1;
+  font-size: 11px;
+  color: var(--text-dim);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.editor-actions {
+  display: flex;
+  gap: 8px;
+  flex-shrink: 0;
+}
+.editor-body {
+  flex: 1;
+  display: flex;
+  min-height: 0;
+}
+.editor-textarea {
+  flex: 1;
+  width: 100%;
+  border: none;
+  outline: none;
+  resize: none;
+  padding: 12px 14px;
+  background: var(--bg-base);
+  color: var(--text);
+  font-family: "Cascadia Code", "Consolas", "Menlo", monospace;
+  font-size: 13px;
+  line-height: 1.5;
+  tab-size: 4;
+}
+.editor-hint,
+.editor-error {
+  padding: 24px;
+  color: var(--text-dim);
+  font-size: 13px;
+}
+.editor-error {
+  color: var(--danger);
+}

@@ -1,0 +1,173 @@
+﻿/* 全局基础样式 — 变量 + reset + 通用控件 */
+:root {
+  --bg-base: #0d0d0d;
+  --bg-panel: #1a1a1a;
+  --bg-elevated: #252525;
+  --bg-hover: #2d2d2d;
+  --border: #333333;
+  --text: #e0e0e0;
+  --text-dim: #888888;
+  --accent: #4ec9b0;
+  --accent-dim: #3a9a87;
+  --danger: #f14c4c;
+  --radius: 6px;
+  --transition: 150ms ease;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html, body, #root {
+  height: 100%;
+  margin: 0;
+}
+
+body {
+  font-family: "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", "Microsoft YaHei", sans-serif;
+  background: var(--bg-base);
+  color: var(--text);
+  font-size: 13px;
+  overflow: hidden;
+  user-select: none;
+}
+
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  background: var(--border);
+  border-radius: 4px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: var(--text-dim);
+}
+
+button {
+  font-family: inherit;
+  font-size: inherit;
+  color: var(--text);
+  background: var(--bg-elevated);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 6px 14px;
+  cursor: pointer;
+  transition: var(--transition);
+}
+button:hover {
+  background: var(--bg-hover);
+  border-color: var(--accent-dim);
+}
+button.primary {
+  background: var(--accent);
+  color: #0d0d0d;
+  border-color: var(--accent);
+  font-weight: 500;
+}
+button.primary:hover {
+  background: var(--accent-dim);
+  border-color: var(--accent-dim);
+}
+button.danger {
+  border-color: var(--danger);
+  color: var(--danger);
+}
+button.danger:hover {
+  background: var(--danger);
+  color: #fff;
+}
+button.icon {
+  padding: 6px 8px;
+  background: transparent;
+  border: none;
+}
+button.icon:hover {
+  background: var(--bg-hover);
+}
+
+input, select, textarea {
+  font-family: inherit;
+  font-size: inherit;
+  color: var(--text);
+  background: var(--bg-panel);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  padding: 6px 10px;
+  outline: none;
+  transition: var(--transition);
+}
+input:focus, select:focus, textarea:focus {
+  border-color: var(--accent);
+}
+input[type="file"] {
+  display: none;
+}
+
+/* 主布局 */
+.app-layout {
+  display: flex;
+  height: 100vh;
+}
+
+.main {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.panel-switch {
+  display: flex;
+  gap: 4px;
+  padding: 0 12px;
+  background: var(--bg-elevated);
+  border-bottom: 1px solid var(--border);
+  height: 32px;
+  align-items: center;
+  flex-shrink: 0;
+}
+.panel-switch button {
+  padding: 4px 12px;
+  font-size: 12px;
+  background: transparent;
+  border: none;
+  border-bottom: 2px solid transparent;
+  border-radius: 0;
+  color: var(--text-dim);
+}
+.panel-switch button.active {
+  color: var(--accent);
+  border-bottom-color: var(--accent);
+}
+.panel-switch button:hover {
+  background: var(--bg-hover);
+}
+
+.content {
+  flex: 1;
+  position: relative;
+  overflow: hidden;
+}
+.content-panel {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.empty-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  height: 100%;
+  color: var(--text-dim);
+  gap: 12px;
+}
+.empty-state .hint {
+  font-size: 12px;
+}
