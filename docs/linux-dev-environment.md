@@ -3,7 +3,10 @@
 - 记录日期：2026-11-11
 - 复核日期：2026-11-11（复核结论见 4.1）
 - 对应计划：[linux-port-execution-plan.md](./linux-port-execution-plan.md) 阶段 0
-- 结论：**Linux 开发全链路已收敛到容器内**——依赖安装、TypeScript 检查、Vite 构建、Vite dev server、`wails dev`/`wails build` 均在容器 `ssh-tool-dev:noble` 中执行，GUI 显示链路已验证可直通宿主 Wayland/XWayland；宿主机只负责编辑源码和执行 git。应用完整构建当前唯一阻塞是 `app/vault.go` 的 Windows DPAPI 实现（计划阶段 1/2），不是环境问题。
+- 结论：**Linux 开发环境两条路径均可用**。
+  1. **宿主机原生**：已安装 gcc/build-essential、pkg-config、GTK3 dev 与 WebKitGTK 4.1 dev，CGO 编译、`wails doctor`、`go build`、`wails build`/`wails dev`（`-tags webkit2_41`）均可在宿主机直接执行；
+  2. **容器化**：`ssh-tool-dev:noble` 提供可复现的干净构建环境，用于 CI/干净环境验证与 GUI 直通测试。
+  两条路径共用同一工程目录与缓存/依赖，可交替使用（切换时需注意 `node_modules` 归属，见第 2 节）。应用完整构建当前唯一阻塞是 `app/vault.go` 的 Windows DPAPI 实现（计划阶段 1/2），不是环境问题。
 
 ## 1. 宿主机环境
 
@@ -18,19 +21,18 @@
 
 ### 1.1 权限与职责边界
 
-宿主机没有 root 权限，无法通过 apt 安装 `gcc`、`pkg-config`、`libgtk-3-dev`、`libwebkit2gtk-4.1-dev`，因此无法在宿主机完成 Wails 的 CGO 编译。复核时实测：
+搭建初期宿主机没有 root 权限（`sudo -n` 需要密码），无法通过 apt 安装 CGO/GTK/WebKit 开发包，因此当时把构建链路放进了容器。**后续宿主机已具备系统开发包**，原生构建路径恢复可用。
 
-- `sudo -n true` 失败（`sudo: 需要密码`）；
-- 复核会话 `NoNewPrivs=0`，但搭建时的自动化会话处于 `NoNewPrivs=1` 沙箱，`sudo` 直接报 `The "no new privileges" flag is set`。
+当前职责：
 
-两种情况下宿主机都无法提权安装系统包。职责因此固定为：
+- **宿主机**：日常开发默认路径。可执行 `pnpm install/build`、`go build`、`wails dev`/`wails build -tags webkit2_41`，窗口直接使用当前 Wayland/XWayland 会话；
+- **容器**：保留为可复现/干净构建路径，用于验证「从零环境可构建」、`wails doctor`、GUI 直通测试，以及避免宿主机环境差异。
 
-- **容器**：唯一开发入口，承担全部安装、类型检查、构建、dev server、`wails dev`/`wails build`、GUI 运行；
-- **宿主机**：只编辑源码（bind mount 到容器 `/workspace`）、执行 git，不执行 `pnpm install`、`go build`、`wails build`。
+宿主机 `wails doctor` 仍会提示 `libwebkit Not Found`（Wails v2.12.0 检查的是 `webkit2gtk-4.0`，24.04 只有 4.1），属已知误报，见 4.2；以 `pkg-config --modversion webkit2gtk-4.1` 和实际构建为准。
 
-宿主机 `wails doctor` 仍会提示缺 gcc/libgtk-3/pkg-config/libwebkit，这是预期结果，不作为环境是否就绪的判据；判据是容器内命令与构建结果。
+## 2. 宿主机工具链与系统开发包
 
-## 2. 宿主机工具链（可选，不参与构建）
+### 2.1 工具链
 
 | 工具 | 版本 | 位置 |
 | --- | --- | --- |
@@ -41,7 +43,16 @@
 | pnpm | 10.34.9 | `~/.local/bin/pnpm` |
 | Docker | 29.1.3 | 系统包 |
 
-这些工具仅供宿主机上的编辑器补全、`git` 辅助或应急排查使用；容器内已装齐相同版本，构建不依赖宿主机工具链。
+### 2.2 系统开发包（2026-11-11 追加安装）
+
+| 包 | 版本 | 用途 |
+| --- | --- | --- |
+| build-essential / gcc | 12.10ubuntu1 / gcc 13.3.0 | CGO 编译 |
+| libgtk-3-dev | 3.24.41-4ubuntu1.3 | Wails Linux UI |
+| libwebkit2gtk-4.1-dev | 2.52.6-0ubuntu0.24.04.1 | WebKitGTK，构建需 `-tags webkit2_41` |
+| pkg-config | 1.8.1-2build1 | 库探测 |
+
+这些包使宿主机具备与容器等价的原生构建能力，容器内不再必需（但仍保留用于可复现验证）。
 
 配置改动：
 
@@ -49,16 +60,29 @@
 - 两个文件均设置 `GOPROXY=https://goproxy.cn,direct`；当前网络下 `proxy.golang.org` 不可达。
 - pnpm 由 **8.15.9 升级到 10.34.9**：`frontend/pnpm-lock.yaml` 为 `lockfileVersion: '9.0'`，且 `pnpm-workspace.yaml` 使用 pnpm 9+ 的 `onlyBuiltDependencies` 格式，pnpm 8 直接报 `ERR_PNPM_INVALID_WORKSPACE_CONFIGURATION`。
 
-> 注意：`frontend/node_modules` 由容器内 pnpm 生成，`node_modules/.modules.yaml` 记录的 `storeDir` 为容器路径 `/workspace/.pnpm-store/v10`（项目内 store，位于 bind mount 上，保证容器内硬链接可用）。因此**不要在宿主机执行 `pnpm install`**；若确需执行，先设 `CI=true`，否则非 TTY 下报 `ERR_PNPM_ABORTED_REMOVE_MODULES_DIR_NO_TTY`。宿主机 `pnpm run build` 不受影响。
+> 注意：`frontend/node_modules` 被宿主机与容器共用，`node_modules/.modules.yaml` 的 `storeDir` 跟随最后执行安装的一方（宿主机为 `~/.local/share/pnpm/store/v10`，容器为 `/workspace/.pnpm-store/v10`）。在另一侧首次安装时 pnpm 会要求重建 `node_modules`：容器脚本已注入 `CI=true` 自动处理，宿主机侧建议显式执行 `CI=true pnpm install --frozen-lockfile`，否则非 TTY 下报 `ERR_PNPM_ABORTED_REMOVE_MODULES_DIR_NO_TTY`。`pnpm run build` 不受影响。
 
-## 3. 容器化开发环境（全链路唯一入口）
+### 2.3 宿主机原生命令
+
+在 `ssh-tool/` 目录执行（无需容器）：
+
+```bash
+cd frontend && CI=true pnpm install --frozen-lockfile   # 仅在 node_modules 归属容器时需要 rebuild
+cd frontend && pnpm run build                           # tsc && vite build
+go build ./...                                          # 当前预期被 vault.go 阻塞（阶段 1）
+wails doctor                                            # libwebkit 误报见 4.2
+wails build -tags webkit2_41                            # 当前预期在生成绑定阶段被 vault.go 阻塞
+wails dev -tags webkit2_41                              # 阶段 1 完成后可直接启动原生窗口
+```
+
+## 3. 容器化开发环境（可复现构建路径）
 
 文件：
 
 | 文件 | 用途 |
 | --- | --- |
 | `build/linux/Dockerfile.dev` | 固定版本的 Ubuntu 24.04 构建镜像 |
-| `build/linux/dev-env.sh` | 镜像构建与全部开发命令入口 |
+| `build/linux/dev-env.sh` | 镜像构建与容器开发命令入口 |
 
 镜像 `ssh-tool-dev:noble`（复核时 ID `87d29de6b993`，创建于 2026-11-11 16:28，`docker image ls` 显示 3.19 GB，Ubuntu 24.04 基础镜像）：
 
@@ -81,9 +105,9 @@
 - APT 使用清华镜像（实测约 622 KB/s，阿里云镜像约 195 KB/s），Node 与 Go 使用阿里云镜像，Go modules 使用 `goproxy.cn`。
 - `docker run` 使用 `--network host`，容器内 Vite dev server 端口（默认 5173）在宿主机 `127.0.0.1` 可直接访问。
 
-### 3.1 全链路命令
+### 3.1 容器命令
 
-在 `ssh-tool/` 目录执行；所有开发动作都在容器内完成：
+在 `ssh-tool/` 目录执行；以下命令把对应的开发动作放在容器内完成（宿主机原生命令见 2.3）：
 
 ```bash
 build/linux/dev-env.sh up       # 启动常驻开发容器 ssh-tool-dev（已存在则复用；镜像/挂载变化时自动重建）
@@ -136,7 +160,14 @@ build/linux/dev-env.sh dev      # wails dev -tags webkit2_41（含 Vite HMR + GU
 | 项目 | 结果 | 说明 |
 | --- | --- | --- |
 | 宿主机工具链版本 | 通过 | Go 1.25.14、Wails v2.12.0、Node v24.22.2、npm 11.19.1、pnpm 10.34.9，与记录一致 |
-| `wails doctor`（宿主机） | 预期缺包 | gcc/libgtk-3/pkg-config/libwebkit 均未安装；宿主机不参与构建 |
+| 宿主机系统开发包 | 通过 | build-essential 12.10（gcc 13.3.0）、libgtk-3-dev 3.24.41、libwebkit2gtk-4.1-dev 2.52.6、pkg-config 1.8.1 |
+| `wails doctor`（宿主机） | 通过（libwebkit 误报） | gcc/build-essential、libgtk-3-dev、npm、pkg-config 均 Installed；libwebkit 误报见 4.2 |
+| CGO + GTK/WebKit 冒烟（宿主机） | 通过 | 原生编译、链接并运行探针：`GTK 3.24.41`、`WebKitGTK 2.52.6`；`ldd` 确认三个动态库 |
+| 宿主机 GUI | 通过 | GTK 探针：Wayland `backend=wayland-0`、`GDK_BACKEND=x11` 时 `backend=:0` |
+| 宿主机 `pnpm install --frozen-lockfile` | 通过 | `CI=true` 856 ms，`.modules.yaml` 的 `storeDir` 恢复为宿主 store |
+| 宿主机 `pnpm run build` | 通过 | `tsc` 无错误；Vite 55 modules，生成 `dist/` |
+| 宿主机 `go build ./...` | 失败（预期） | 与容器一致：`vault.go:11`、`14` 共 2 处 `undefined: syscall.NewLazyDLL` |
+| 宿主机 `wails build -tags webkit2_41` | 失败（预期） | 生成绑定阶段报同一 vault.go 错误，未出现依赖缺失 |
 | 镜像 `ssh-tool-dev:noble` | 通过 | ID `87d29de6b993`，创建于 2026-11-11 16:28，3.19 GB |
 | 常驻开发容器 `up`/`exec` | 通过 | `ssh-tool-dev` 启动成功；容器内 `id`=1000、`/workspace` 挂载正常、工具链版本与镜像一致 |
 | 常驻容器 GUI 直通 | 通过 | 容器内 GTK 探针：Wayland `backend=wayland-0`、X11 `backend=:0` |
@@ -158,7 +189,8 @@ build/linux/dev-env.sh dev      # wails dev -tags webkit2_41（含 Vite HMR + GU
 1. **镜像 ID 过期**：文档原记录 `f6f812bc579b`，实际最终镜像为 `87d29de6b993`（重建镜像后 ID 会再变，以 `docker image inspect ssh-tool-dev:noble` 为准）。
 2. **构建错误数量记错**：原记录称 vault.go「同类错误 14 行」，复核实测为 2 处（第 11、14 行 `syscall.NewLazyDLL`）。
 3. **宿主机无法直接重建 `node_modules`**：容器内 `pnpm install` 会把 `.modules.yaml` 的 `storeDir` 写成 `/workspace/.pnpm-store/v10`；宿主机再执行 `pnpm install` 会要求重建，无 TTY 时报 `ERR_PNPM_ABORTED_REMOVE_MODULES_DIR_NO_TTY`。全链路在容器内执行可完全规避；如宿主机确需执行，加 `CI=true`。
-4. **`sudo` 限制的描述**：搭建时遇到的 `NoNewPrivs` 报错属实，但复核会话 `NoNewPrivs=0`、`sudo` 仅缺密码；结论（宿主机无法提权安装系统包）不变。
+4. **`sudo` 限制的描述**：搭建时遇到的 `NoNewPrivs` 报错属实，但复核会话 `NoNewPrivs=0`、`sudo` 仅缺密码；当时结论（宿主机无法提权安装系统包）成立。
+5. **宿主机不能构建的结论已过时**：2026-11-11 追加安装 `build-essential`、`libgtk-3-dev`、`libwebkit2gtk-4.1-dev`、`pkg-config` 后，宿主机原生 CGO/GTK/WebKit 编译、`wails build`（至 vault.go 阻塞点）均已验证通过；文档已改为「宿主机原生 + 容器可复现」双路径。
 
 ### 4.2 `wails doctor` 的已知误报
 
@@ -171,26 +203,33 @@ build/linux/dev-env.sh dev      # wails dev -tags webkit2_41（含 Vite HMR + GU
 
 ## 5. 已知限制
 
-1. 宿主机不能直接 `wails build`/`wails dev`（无 GTK/WebKit 开发包，且无法提权）；全链路以容器为准。
-2. 应用窗口本身尚未启动验证（构建被阶段 1 阻塞）；显示链路已用 GTK 探针分别验证 Wayland 与 X11 可连接。
-3. 容器内 Secret Service 需要先启动 dbus 会话并解锁 gnome-keyring（阶段 2 再接入验证），当前仅保证软件包存在。
-4. 镜像未裁剪，包含 apt 列表与 Go 构建缓存，体积约 3.19 GB。
-5. 网络依赖：`proxy.golang.org`、`go.dev` 不可达，需使用 `goproxy.cn` 与阿里云/清华镜像。
-6. `frontend/node_modules` 由容器生成，宿主机 `pnpm install` 需 `CI=true`（见第 2 节注意事项）。
-7. **阶段 0 遗留**：尚未准备可用的 SSH/SFTP 测试服务器（本地无 `sshd`），阶段 2 密码/私钥/私钥口令认证验证前需要补上；Windows 侧基线回归无法在本机完成，需要 Windows 环境。
+1. 应用窗口本身尚未启动验证（构建被阶段 1 阻塞）；显示链路已用 GTK 探针分别验证宿主机原生 Wayland/X11 与容器直通。
+2. 容器内 Secret Service 需要先启动 dbus 会话并解锁 gnome-keyring（阶段 2 再接入验证），当前仅保证软件包存在；宿主机 Secret Service 同样待阶段 2 验证。
+3. 镜像未裁剪，包含 apt 列表与 Go 构建缓存，体积约 3.19 GB。
+4. 网络依赖：`proxy.golang.org`、`go.dev` 不可达，需使用 `goproxy.cn` 与阿里云/清华镜像。
+5. `frontend/node_modules` 被宿主机与容器共用，在另一侧执行安装时需 `CI=true`（见第 2 节）；两侧不要同时执行 `pnpm install`/`wails build`。
+6. **阶段 0 遗留**：尚未准备可用的 SSH/SFTP 测试服务器（本地无 `sshd`），阶段 2 密码/私钥/私钥口令认证验证前需要补上；Windows 侧基线回归无法在本机完成，需要 Windows 环境。
 
-## 6. 若宿主机取得 sudo 的等价安装（非必需路径）
+## 6. 宿主机原生构建依赖（已安装）
 
-容器方案已满足全链路需求；仅在希望宿主机原生构建时使用：
+2026-11-11 已通过 apt 安装（版本见 2.2）：
 
 ```bash
 sudo apt install build-essential pkg-config libgtk-3-dev libwebkit2gtk-4.1-dev
-go install github.com/wailsapp/wails/v2/cmd/wails@v2.12.0
-wails build -tags webkit2_41
 ```
+
+Wails CLI 已按 `go.mod` 固定在 v2.12.0，原生构建命令：
+
+```bash
+cd ssh-tool
+wails build -tags webkit2_41
+wails dev -tags webkit2_41
+```
+
+Ubuntu 24.04 只提供 WebKitGTK 4.1，`-tags webkit2_41` 不可省略；`wails doctor` 的 `libwebkit Not Found` 为误报（4.2）。
 
 ## 7. 下一步
 
 1. 阶段 0 收尾：准备 SSH/SFTP 测试服务器（建议同样容器化，覆盖密码、私钥、加密私钥三种认证），Windows 基线另行安排。
 2. 阶段 1：把 `app/vault.go` 改为 `//go:build windows`，新增 Linux 平台文件边界；之后解除 `wails build`/`wails dev` 阻塞。
-3. 阶段 2：接入 Secret Service（`github.com/zalando/go-keyring`），完成凭证写入、读取、更新、删除及错误路径，并用 `build/linux/dev-env.sh build` 验证完整产物。
+3. 阶段 2：接入 Secret Service（`github.com/zalando/go-keyring`），完成凭证写入、读取、更新、删除及错误路径；完整产物可用宿主机 `wails build -tags webkit2_41` 或 `build/linux/dev-env.sh build` 验证。

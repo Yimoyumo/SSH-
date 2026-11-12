@@ -1,10 +1,10 @@
 #!/usr/bin/env bash
 # Reproducible Linux dev/build environment for ssh-tool (Ubuntu 24.04, GTK3, WebKitGTK 4.1).
 #
-# Canonical entry point for the full Linux development chain: dependency install,
-# frontend build, dev servers, wails dev/build and GUI runs all happen inside the
-# container. Do not run pnpm/go/wails on the host; the host only edits sources.
-# See docs/linux-dev-environment.md.
+# Reproducible container path for the Linux development chain: dependency install,
+# frontend build, dev servers, wails dev/build and GUI runs can all run inside the
+# container. The host also has the same native build deps installed; both paths
+# share the same project checkout. See docs/linux-dev-environment.md.
 #
 # Usage (from ssh-tool/):
 #   build/linux/dev-env.sh up             # start persistent dev container

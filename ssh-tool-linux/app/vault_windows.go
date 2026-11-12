@@ -1,3 +1,5 @@
+//go:build windows
+
 package app
 
 import (
@@ -75,6 +77,11 @@ func bytesToBlob(b []byte) dataBlob {
 		cbData: uint32(len(b)),
 		pbData: uintptr(unsafe.Pointer(&b[0])),
 	}
+}
+
+// DeleteCipher 清理凭证引用持有的外部秘密;DPAPI 密文不持有外部秘密,故无需动作。
+func DeleteCipher(ref string) error {
+	return nil
 }
 
 func blobToBytes(blob dataBlob) []byte {

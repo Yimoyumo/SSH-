@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback, useRef } from "react";
 import * as App from "../../wailsjs/go/app/App";
-import { EventsOn, EventsOff } from "../../wailsjs/runtime/runtime";
+import { EventsOn, EventsOff, OnFileDrop, OnFileDropOff } from "../../wailsjs/runtime/runtime";
 import type { app } from "../../wailsjs/go/models";
 import ContextMenu, { type MenuEntry } from "./ContextMenu";
 import "./FilePanel.css";
@@ -181,9 +181,20 @@ export default function FilePanel({ sessionID, toast, onEdit }: FilePanelProps) 
   const handleDrop = (e: React.DragEvent) => {
     e.preventDefault();
     setDragover(false);
-    const files = Array.from(e.dataTransfer.files);
-    files.forEach((f) => uploadFile({ name: f.name, path: (f as unknown as { path?: string }).path }));
   };
+
+  const uploadRef = useRef(uploadFile);
+  uploadRef.current = uploadFile;
+
+  // WebKitGTK 的 File 对象无本地路径(File.path 是 Electron 私有属性),路径只能经 Wails OnFileDrop 提供
+  useEffect(() => {
+    if (!sessionID) return;
+    const onFiles = (_x: number, _y: number, paths: string[]) => {
+      paths.forEach((p) => uploadRef.current({ name: p.split(/[\\/]/).pop() || "file", path: p }));
+    };
+    OnFileDrop(onFiles, true);
+    return () => OnFileDropOff();
+  }, [sessionID]);
 
   const handleFilePick = async () => {
     const local = await App.OpenFileDialog("选择上传文件");
@@ -239,7 +250,7 @@ export default function FilePanel({ sessionID, toast, onEdit }: FilePanelProps) 
   return (
     <div
       className="file-drop-zone"
-      style={{ borderStyle: dragover ? "solid" : "none" }}
+      style={{ borderStyle: dragover ? "solid" : "none", "--wails-drop-target": "true" } as React.CSSProperties}
       onDragOver={(e) => {
         e.preventDefault();
         setDragover(true);
