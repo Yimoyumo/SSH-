@@ -1,5 +1,6 @@
 import { useEffect, useRef } from "react";
 import { Terminal } from "@xterm/xterm";
+import { resolveTerminalFont } from "../fonts";
 import { FitAddon } from "@xterm/addon-fit";
 import { WebglAddon } from "@xterm/addon-webgl";
 import * as App from "../../wailsjs/go/app/App";
@@ -10,9 +11,11 @@ import "./Terminal.css";
 interface TerminalViewProps {
   terminalID: string;
   visible: boolean;
+  fontSize: number;
+  fontFamily: string;
 }
 
-export default function TerminalView({ terminalID, visible }: TerminalViewProps) {
+export default function TerminalView({ terminalID, visible, fontSize, fontFamily }: TerminalViewProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const termRef = useRef<Terminal | null>(null);
   const fitRef = useRef<FitAddon | null>(null);
@@ -21,25 +24,30 @@ export default function TerminalView({ terminalID, visible }: TerminalViewProps)
     if (!containerRef.current) return;
 
     const term = new Terminal({
-      fontFamily: "JetBrains Mono, Consolas, Microsoft YaHei, monospace",
-      fontSize: 14,
+      fontFamily: `"${resolveTerminalFont(fontFamily)}", "Noto Sans Mono CJK SC", "DejaVu Sans Mono", monospace`,
+      fontSize,
+      lineHeight: 1.2,
       cursorBlink: true,
       theme: {
-        background: "#0d0d0d",
-        foreground: "#e0e0e0",
-        cursor: "#4ec9b0",
-        selectionBackground: "rgba(78, 201, 176, 0.3)",
+        background: "#171b28",
+        foreground: "#ccd2e0",
+        cursor: "#7d8ff0",
+        selectionBackground: "rgba(125, 143, 240, 0.3)",
       },
       allowProposedApi: true,
     });
     const fit = new FitAddon();
     term.loadAddon(fit);
-    try {
-      term.loadAddon(new WebglAddon());
-    } catch {
-      // WebGL 不可用时回退 canvas 渲染
-    }
     term.open(containerRef.current);
+    try {
+      const webgl = new WebglAddon();
+      webgl.onContextLoss(() => {
+        webgl.dispose();
+      });
+      term.loadAddon(webgl);
+    } catch {
+      // WebGL 不可用时回退 DOM 渲染器;此处吞异常属预期降级路径
+    }
     termRef.current = term;
     fitRef.current = fit;
 
@@ -126,6 +134,18 @@ export default function TerminalView({ terminalID, visible }: TerminalViewProps)
       fitRef.current = null;
     };
   }, [terminalID]);
+
+  useEffect(() => {
+    const term = termRef.current;
+    if (!term) return;
+    term.options.fontSize = fontSize;
+    term.options.fontFamily = `"${resolveTerminalFont(fontFamily)}", "Noto Sans Mono CJK SC", "DejaVu Sans Mono", monospace`;
+    try {
+      fitRef.current?.fit();
+    } catch {
+      // 容器未布局完成,忽略
+    }
+  }, [fontSize, fontFamily]);
 
   useEffect(() => {
     if (visible && termRef.current && fitRef.current) {

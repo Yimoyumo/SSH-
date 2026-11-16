@@ -2,11 +2,12 @@
 
 - 记录日期：2026-11-11
 - 复核日期：2026-11-11（复核结论见 4.1）
+- 更新日期：2026-11-12（计划阶段 1–3 完成，构建阻塞解除，见 4.3）
 - 对应计划：[linux-port-execution-plan.md](./linux-port-execution-plan.md) 阶段 0
 - 结论：**Linux 开发环境两条路径均可用**。
   1. **宿主机原生**：已安装 gcc/build-essential、pkg-config、GTK3 dev 与 WebKitGTK 4.1 dev，CGO 编译、`wails doctor`、`go build`、`wails build`/`wails dev`（`-tags webkit2_41`）均可在宿主机直接执行；
   2. **容器化**：`ssh-tool-dev:noble` 提供可复现的干净构建环境，用于 CI/干净环境验证与 GUI 直通测试。
-  两条路径共用同一工程目录与缓存/依赖，可交替使用（切换时需注意 `node_modules` 归属，见第 2 节）。应用完整构建当前唯一阻塞是 `app/vault.go` 的 Windows DPAPI 实现（计划阶段 1/2），不是环境问题。
+  两条路径共用同一工程目录与缓存/依赖，可交替使用（切换时需注意 `node_modules` 归属，见第 2 节）。应用完整构建已通过（计划阶段 1–3 完成，见 4.3）。
 
 ## 1. 宿主机环境
 
@@ -64,15 +65,15 @@
 
 ### 2.3 宿主机原生命令
 
-在 `ssh-tool/` 目录执行（无需容器）：
+在 `ssh-tool-linux/` 目录执行（Linux 移植工程，改动统一在该目录；无需容器）：
 
 ```bash
 cd frontend && CI=true pnpm install --frozen-lockfile   # 仅在 node_modules 归属容器时需要 rebuild
 cd frontend && pnpm run build                           # tsc && vite build
-go build ./...                                          # 当前预期被 vault.go 阻塞（阶段 1）
+go build ./...                                          # 已通过（阶段 1–3 完成）
 wails doctor                                            # libwebkit 误报见 4.2
-wails build -tags webkit2_41                            # 当前预期在生成绑定阶段被 vault.go 阻塞
-wails dev -tags webkit2_41                              # 阶段 1 完成后可直接启动原生窗口
+wails build -tags webkit2_41                            # 已通过，产出 build/bin/ssh-tool
+wails dev -tags webkit2_41                              # 可直接启动原生窗口
 ```
 
 ## 3. 容器化开发环境（可复现构建路径）
@@ -107,7 +108,7 @@ wails dev -tags webkit2_41                              # 阶段 1 完成后可�
 
 ### 3.1 容器命令
 
-在 `ssh-tool/` 目录执行；以下命令把对应的开发动作放在容器内完成（宿主机原生命令见 2.3）：
+在 `ssh-tool-linux/` 目录执行；以下命令把对应的开发动作放在容器内完成（宿主机原生命令见 2.3）：
 
 ```bash
 build/linux/dev-env.sh up       # 启动常驻开发容器 ssh-tool-dev（已存在则复用；镜像/挂载变化时自动重建）
@@ -128,7 +129,7 @@ build/linux/dev-env.sh run -- bash -c \
 build/linux/dev-env.sh run -- bash -c \
   'cd /workspace/frontend && ./node_modules/.bin/vite --host 0.0.0.0 --port 5173'
 
-# Go 包编译（当前预期被 vault.go 阻塞）
+# Go 包编译（已通过）
 build/linux/dev-env.sh run -- go build ./...
 
 build/linux/dev-env.sh build    # wails build -tags webkit2_41
@@ -197,18 +198,18 @@ build/linux/dev-env.sh dev      # wails dev -tags webkit2_41（含 Vite HMR + GU
 - `libwebkit` 显示 `Not Found`：Wails v2.12.0 检查的是 `libwebkit2gtk-4.0-dev`，Ubuntu 24.04 只提供 4.1，实际开发包已安装（`pkg-config --modversion webkit2gtk-4.1` 返回 `2.52.6`），编译必须显式加 `-tags webkit2_41`。
 - 因此 doctor 以 `Fatal: Required dependencies missing: libwebkit` 退出，不适用于 24.04 的最终判定；以 `pkg-config` 探测和实际编译为准。
 
-### 4.3 当前应用构建阻塞
+### 4.3 应用构建阻塞已解除（2026-11-12）
 
-`wails build`/`wails dev` 在生成绑定阶段即编译 Go 包，失败点全部来自 `app/vault.go` 的 Windows API（`syscall.NewLazyDLL`）。该文件的平台拆分属于计划阶段 1/2，不是环境问题；环境侧的 CGO/GTK/WebKit、前端工具链、dev server、GUI 直通均已验证可用。阶段 1 完成 `vault.go` 平台边界后，`build`/`dev` 即可继续向后执行。
+上表中 `vault.go` 相关失败项为 2026-11-11 复核时的历史记录。2026-11-12 完成计划阶段 1–3（`vault_windows.go`/`vault_linux.go` 平台拆分、Secret Service 凭证、拖放 `OnFileDrop` 修复，提交 `2bc60ba`）后，`go build ./...` 与 `wails build -tags webkit2_41` 均已通过，产出 `build/bin/ssh-tool`。
 
 ## 5. 已知限制
 
-1. 应用窗口本身尚未启动验证（构建被阶段 1 阻塞）；显示链路已用 GTK 探针分别验证宿主机原生 Wayland/X11 与容器直通。
-2. 容器内 Secret Service 需要先启动 dbus 会话并解锁 gnome-keyring（阶段 2 再接入验证），当前仅保证软件包存在；宿主机 Secret Service 同样待阶段 2 验证。
+1. 应用窗口已启动验证（2026-11-12）：X11/Wayland 双后端启动冒烟与「新建连接」对话框控件树（AT-SPI）通过；视觉验证与界面手工测试按用户决定豁免，端到端交互项留待人工 QA。
+2. Secret Service 已接入并验证（阶段 2，2026-11-12）：宿主机真实 GNOME Keyring 的保存/读取/清理四路径通过；容器内 Secret Service 仍需先启动 dbus 会话并解锁 gnome-keyring 才可用于测试。
 3. 镜像未裁剪，包含 apt 列表与 Go 构建缓存，体积约 3.19 GB。
 4. 网络依赖：`proxy.golang.org`、`go.dev` 不可达，需使用 `goproxy.cn` 与阿里云/清华镜像。
 5. `frontend/node_modules` 被宿主机与容器共用，在另一侧执行安装时需 `CI=true`（见第 2 节）；两侧不要同时执行 `pnpm install`/`wails build`。
-6. **阶段 0 遗留**：尚未准备可用的 SSH/SFTP 测试服务器（本地无 `sshd`），阶段 2 密码/私钥/私钥口令认证验证前需要补上；Windows 侧基线回归无法在本机完成，需要 Windows 环境。
+6. SSH/SFTP 测试服务器已备：Docker 容器 `omo-sshd`（`lscr.io/linuxserver/openssh-server`，127.0.0.1:2222，密码+密钥双认证），测试后已停止，`docker start omo-sshd` 可复用；Windows 侧基线回归仍需 Windows 环境。
 
 ## 6. 宿主机原生构建依赖（已安装）
 
@@ -221,7 +222,7 @@ sudo apt install build-essential pkg-config libgtk-3-dev libwebkit2gtk-4.1-dev
 Wails CLI 已按 `go.mod` 固定在 v2.12.0，原生构建命令：
 
 ```bash
-cd ssh-tool
+cd ssh-tool-linux
 wails build -tags webkit2_41
 wails dev -tags webkit2_41
 ```
@@ -230,6 +231,5 @@ Ubuntu 24.04 只提供 WebKitGTK 4.1，`-tags webkit2_41` 不可省略；`wails 
 
 ## 7. 下一步
 
-1. 阶段 0 收尾：准备 SSH/SFTP 测试服务器（建议同样容器化，覆盖密码、私钥、加密私钥三种认证），Windows 基线另行安排。
-2. 阶段 1：把 `app/vault.go` 改为 `//go:build windows`，新增 Linux 平台文件边界；之后解除 `wails build`/`wails dev` 阻塞。
-3. 阶段 2：接入 Secret Service（`github.com/zalando/go-keyring`），完成凭证写入、读取、更新、删除及错误路径；完整产物可用宿主机 `wails build -tags webkit2_41` 或 `build/linux/dev-env.sh build` 验证。
+1. 阶段 4（`.deb` 打包）：生成安装包与校验值，在干净 Ubuntu 虚拟机验收安装/启动/卸载。
+2. 阶段 5（全量回归与发布）：完整回归矩阵（视觉验证与界面手工测试按用户决定豁免，端到端交互项留待人工 QA）、Windows 核心回归、README 更新。

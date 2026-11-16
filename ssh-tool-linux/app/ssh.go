@@ -7,6 +7,7 @@ import (
 	"log"
 	"net"
 	"strconv"
+	"strings"
 	"sync"
 	"time"
 
@@ -267,23 +268,55 @@ func (s *Session) openTerminal(ctx context.Context, rows, cols int) (*Terminal, 
 	term := &Terminal{ID: termID, sess: sshSess, stdin: stdin}
 	s.terms[termID] = term
 
-	// 推流 PTY 输出到前端
+	// 推流 PTY 输出:读循环与合并推送分离。高频小包若逐包发 Wails 事件会
+	// 淹没前端事件循环导致输入卡顿,这里按 10ms 窗口合并,单次最大 64KB。
 	go func() {
-		buf := make([]byte, 8192)
 		eventName := "term:data:" + termID
-		for {
-			n, err := stdout.Read(buf)
-			if n > 0 {
-				pushEvent(ctx, eventName, string(buf[:n]))
+		exitEvent := "term:exit:" + termID
+		dataCh := make(chan string, 128)
+		go func() {
+			buf := make([]byte, 32768)
+			for {
+				n, err := stdout.Read(buf)
+				if n > 0 {
+					dataCh <- string(buf[:n])
+				}
+				if err != nil {
+					log.Printf("terminal stream exit: term=%s err=%v", termID, err)
+					close(dataCh)
+					return
+				}
 			}
-			if err != nil {
-				log.Printf("terminal stream exit: term=%s err=%v", termID, err)
-				pushEvent(ctx, "term:exit:"+termID, "")
-				sshSess.Close()
-				s.mu.Lock()
-				delete(s.terms, termID)
-				s.mu.Unlock()
+		}()
+		var pending strings.Builder
+		flush := func() {
+			if pending.Len() == 0 {
 				return
+			}
+			pushEvent(ctx, eventName, pending.String())
+			pending.Reset()
+		}
+		ticker := time.NewTicker(10 * time.Millisecond)
+		defer ticker.Stop()
+		for {
+			select {
+			case chunk, ok := <-dataCh:
+				if !ok {
+					flush()
+					pushEvent(ctx, exitEvent, "")
+					sshSess.Close()
+					s.mu.Lock()
+					delete(s.terms, termID)
+					s.mu.Unlock()
+					return
+				}
+				pending.WriteString(chunk)
+				// 无积压时立即刷出(单次击键回显零额外延迟);有积压才按窗口合并
+				if pending.Len() >= 64*1024 || len(dataCh) == 0 {
+					flush()
+				}
+			case <-ticker.C:
+				flush()
 			}
 		}
 	}()

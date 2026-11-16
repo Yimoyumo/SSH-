@@ -28,6 +28,20 @@ export namespace app {
 	        this.keyPassEncrypted = source["keyPassEncrypted"];
 	    }
 	}
+	export class CustomFont {
+	    family: string;
+	    data: string;
+	
+	    static createFrom(source: any = {}) {
+	        return new CustomFont(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.family = source["family"];
+	        this.data = source["data"];
+	    }
+	}
 	export class FileEntry {
 	    name: string;
 	    size: number;
@@ -46,6 +60,22 @@ export namespace app {
 	        this.isDir = source["isDir"];
 	        this.modTime = source["modTime"];
 	        this.mode = source["mode"];
+	    }
+	}
+	export class Settings {
+	    terminalFontSize: number;
+	    terminalFontFamily: string;
+	    windowStyle: string;
+	
+	    static createFrom(source: any = {}) {
+	        return new Settings(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.terminalFontSize = source["terminalFontSize"];
+	        this.terminalFontFamily = source["terminalFontFamily"];
+	        this.windowStyle = source["windowStyle"];
 	    }
 	}
 
