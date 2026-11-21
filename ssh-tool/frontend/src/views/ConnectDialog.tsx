@@ -86,8 +86,8 @@ export default function ConnectDialog({ open, editing, onSave, onClose }: Connec
   };
 
   return (
-    <div className="modal-overlay" onClick={onClose}>
-      <div className="modal" onClick={(e) => e.stopPropagation()}>
+    <div className="modal-overlay">
+      <div className="modal">
         <h2>{editing ? "编辑连接" : "新建连接"}</h2>
         <div className="field">
           <label>名称</label>
@@ -95,7 +95,7 @@ export default function ConnectDialog({ open, editing, onSave, onClose }: Connec
         </div>
         <div className="field-row">
           <div className="field" style={{ flex: 2 }}>
-            <label>主机</label>
+            <label>主机 <span className="req">*</span></label>
             <input value={host} onChange={(e) => setHost(e.target.value)} placeholder="192.168.1.1" />
           </div>
           <div className="field" style={{ flex: 1 }}>
@@ -108,15 +108,27 @@ export default function ConnectDialog({ open, editing, onSave, onClose }: Connec
           </div>
         </div>
         <div className="field">
-          <label>用户名</label>
+          <label>用户名 <span className="req">*</span></label>
           <input value={user} onChange={(e) => setUser(e.target.value)} placeholder="root" />
         </div>
         <div className="field">
           <label>认证方式</label>
-          <select value={authType} onChange={(e) => setAuthType(e.target.value as "password" | "key")}>
-            <option value="password">密码</option>
-            <option value="key">密钥</option>
-          </select>
+          <div className="auth-switch">
+            <button
+              type="button"
+              className={authType === "password" ? "active" : ""}
+              onClick={() => setAuthType("password")}
+            >
+              密码
+            </button>
+            <button
+              type="button"
+              className={authType === "key" ? "active" : ""}
+              onClick={() => setAuthType("key")}
+            >
+              密钥
+            </button>
+          </div>
         </div>
         {authType === "password" ? (
           <div className="field">
@@ -167,7 +179,7 @@ export default function ConnectDialog({ open, editing, onSave, onClose }: Connec
         ) : null}
         <div className="modal-actions">
           <button onClick={onClose}>取消</button>
-          <button className="primary" onClick={handleSave} disabled={saving || !host || !user}>
+          <button className="primary" onClick={handleSave} disabled={saving}>
             {saving ? "保存中..." : "保存"}
           </button>
         </div>
@@ -175,4 +187,3 @@ export default function ConnectDialog({ open, editing, onSave, onClose }: Connec
     </div>
   );
 }
-

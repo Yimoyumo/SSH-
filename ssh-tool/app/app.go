@@ -3,6 +3,7 @@ package app
 import (
 	"context"
 	"encoding/base64"
+	"errors"
 	"fmt"
 	"io"
 	"log"
@@ -44,58 +45,111 @@ func (a *App) ListConnections() []ConnectionConfig {
 }
 
 // SaveConnection 新增或更新连接配置。
-// 凭证非空一律 DPAPI 加密;编辑时空值表示保持原密文不变。
+// 凭证非空一律加密(Windows DPAPI / Linux Secret Service);编辑时空值表示保持原凭证不变。
+// 新配置落盘失败回滚本次新建凭证;落盘成功后清理被替换的旧凭证。
 func (a *App) SaveConnection(cfg ConnectionConfig) (string, error) {
 	log.Printf("saveConnection: id=%q name=%s host=%s:%d", cfg.ID, cfg.Name, cfg.Host, cfg.Port)
-	if cfg.PasswordEncrypted != "" {
-		enc, err := Encrypt(cfg.PasswordEncrypted)
-		if err != nil {
-			return "", fmt.Errorf("encrypt password: %w", err)
-		}
-		cfg.PasswordEncrypted = enc
-	}
-	if cfg.KeyEncrypted != "" {
-		enc, err := Encrypt(cfg.KeyEncrypted)
-		if err != nil {
-			return "", fmt.Errorf("encrypt key: %w", err)
-		}
-		cfg.KeyEncrypted = enc
-	}
-	if cfg.KeyPassEncrypted != "" {
-		enc, err := Encrypt(cfg.KeyPassEncrypted)
-		if err != nil {
-			return "", fmt.Errorf("encrypt key pass: %w", err)
-		}
-		cfg.KeyPassEncrypted = enc
-	}
 
-	// 编辑时空凭证:从已存配置回填,避免清空
+	var old *ConnectionConfig
 	if cfg.ID != "" {
 		for _, existing := range a.store.List() {
 			if existing.ID == cfg.ID {
-				if cfg.PasswordEncrypted == "" {
-					cfg.PasswordEncrypted = existing.PasswordEncrypted
-				}
-				if cfg.KeyEncrypted == "" {
-					cfg.KeyEncrypted = existing.KeyEncrypted
-				}
-				if cfg.KeyPassEncrypted == "" {
-					cfg.KeyPassEncrypted = existing.KeyPassEncrypted
-				}
+				e := existing
+				old = &e
 				break
 			}
 		}
 	}
 
+	var created []string
+	for _, field := range []*string{&cfg.PasswordEncrypted, &cfg.KeyEncrypted, &cfg.KeyPassEncrypted} {
+		if *field == "" {
+			continue
+		}
+		enc, err := Encrypt(*field)
+		if err != nil {
+			rollbackCiphers(created)
+			return "", fmt.Errorf("encrypt credential: %w", err)
+		}
+		*field = enc
+		created = append(created, enc)
+	}
+
+	// 编辑时空凭证:从已存配置回填,避免清空
+	if old != nil {
+		if cfg.PasswordEncrypted == "" {
+			cfg.PasswordEncrypted = old.PasswordEncrypted
+		}
+		if cfg.KeyEncrypted == "" {
+			cfg.KeyEncrypted = old.KeyEncrypted
+		}
+		if cfg.KeyPassEncrypted == "" {
+			cfg.KeyPassEncrypted = old.KeyPassEncrypted
+		}
+	}
+
 	if err := a.store.Save(&cfg); err != nil {
+		rollbackCiphers(created)
 		return "", err
+	}
+
+	if old != nil {
+		for _, ref := range []string{old.PasswordEncrypted, old.KeyEncrypted, old.KeyPassEncrypted} {
+			if ref == "" || cipherInUse(&cfg, ref) {
+				continue
+			}
+			if err := DeleteCipher(ref); err != nil {
+				log.Printf("saveConnection: 清理旧凭证失败: %v", err)
+			}
+		}
 	}
 	return cfg.ID, nil
 }
 
-// DeleteConnection 删除连接配置。
+// DeleteConnection 删除连接配置,并同步清理其凭证。
+// 凭证清理失败返回可诊断错误,不静默忽略。
 func (a *App) DeleteConnection(id string) error {
-	return a.store.Delete(id)
+	var target *ConnectionConfig
+	for _, existing := range a.store.List() {
+		if existing.ID == id {
+			e := existing
+			target = &e
+			break
+		}
+	}
+	if err := a.store.Delete(id); err != nil {
+		return err
+	}
+	if target == nil {
+		return nil
+	}
+	var errs []error
+	for _, ref := range []string{target.PasswordEncrypted, target.KeyEncrypted, target.KeyPassEncrypted} {
+		if ref == "" {
+			continue
+		}
+		if err := DeleteCipher(ref); err != nil {
+			errs = append(errs, err)
+		}
+	}
+	if len(errs) > 0 {
+		joined := errors.Join(errs...)
+		log.Printf("deleteConnection: id=%s 凭证清理失败: %v", id, joined)
+		return fmt.Errorf("连接已删除,但凭证清理失败: %w", joined)
+	}
+	return nil
+}
+
+func rollbackCiphers(refs []string) {
+	for _, ref := range refs {
+		if err := DeleteCipher(ref); err != nil {
+			log.Printf("rollback: 清理凭证失败: %v", err)
+		}
+	}
+}
+
+func cipherInUse(cfg *ConnectionConfig, ref string) bool {
+	return cfg.PasswordEncrypted == ref || cfg.KeyEncrypted == ref || cfg.KeyPassEncrypted == ref
 }
 
 // SaveFileDialog 弹出系统保存文件对话框,返回用户选择的本地路径。
@@ -145,7 +199,7 @@ type Session struct {
 
 // Terminal 表示一个 PTY shell 会话。
 type Terminal struct {
-	ID     string
-	sess   *ssh.Session
-	stdin  io.WriteCloser
+	ID    string
+	sess  *ssh.Session
+	stdin io.WriteCloser
 }

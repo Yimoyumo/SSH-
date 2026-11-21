@@ -118,9 +118,39 @@ export function useSSH() {
   }, [refreshConnections]);
 
   const deleteConnection = useCallback(async (id: string) => {
-    await App.DeleteConnection(id);
+    try {
+      await App.DeleteConnection(id);
+    } catch (e) {
+      setError(String(e));
+    }
+    // 删除连接时同步关闭其所有终端与 SSH 会话,避免残留可用
+    const doomed = new Set<string>();
+    for (const [sid, s] of sessions) {
+      if (s.config.id === id) {
+        doomed.add(sid);
+      }
+    }
+    if (doomed.size > 0) {
+      await Promise.all(
+        [...doomed].map((sid) => App.CloseSession(sid).catch(() => undefined)),
+      );
+      const remainingTabs = tabs.filter((t) => !doomed.has(t.sessionID));
+      setTabs(remainingTabs);
+      setSessions((prev) => {
+        const next = new Map(prev);
+        for (const sid of doomed) {
+          next.delete(sid);
+        }
+        return next;
+      });
+      if (activeTabID && !remainingTabs.some((t) => t.terminalID === activeTabID)) {
+        setActiveTabID(
+          remainingTabs.length > 0 ? remainingTabs[remainingTabs.length - 1].terminalID : null,
+        );
+      }
+    }
     await refreshConnections();
-  }, [refreshConnections]);
+  }, [refreshConnections, sessions, tabs, activeTabID]);
 
   const clearError = useCallback(() => setError(null), []);
 

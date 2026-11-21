@@ -18,8 +18,20 @@ export function DeleteConnection(arg1) {
   return window['go']['app']['App']['DeleteConnection'](arg1);
 }
 
+export function DownloadFont(arg1) {
+  return window['go']['app']['App']['DownloadFont'](arg1);
+}
+
+export function GetSettings() {
+  return window['go']['app']['App']['GetSettings']();
+}
+
 export function ListConnections() {
   return window['go']['app']['App']['ListConnections']();
+}
+
+export function ListCustomFonts() {
+  return window['go']['app']['App']['ListCustomFonts']();
 }
 
 export function LogError(arg1) {
@@ -56,6 +68,10 @@ export function SaveConnection(arg1) {
 
 export function SaveFileDialog(arg1, arg2) {
   return window['go']['app']['App']['SaveFileDialog'](arg1, arg2);
+}
+
+export function SaveSettings(arg1) {
+  return window['go']['app']['App']['SaveSettings'](arg1);
 }
 
 export function SftpDelete(arg1, arg2, arg3) {
