@@ -95,6 +95,11 @@ jobs:
         run: |
           TAG="${{ github.ref_name }}"
           gh release create "$TAG" --verify-tag --title "$TAG" --generate-notes || true
-          [ -f build/bin/ssh-tool.exe ] && gh release upload "$TAG" build/bin/ssh-tool.exe --clobber
-          [ -f build/bin/ssh-tool ] && gh release upload "$TAG" build/bin/ssh-tool --clobber
-          exit 0
+          # gh release upload 的参数是 glob pattern,传不存在的路径会报
+          # "no matches found" 并 exit 1,故按平台文件存在与否分别上传
+          if [ -f build/bin/ssh-tool.exe ]; then
+            gh release upload "$TAG" build/bin/ssh-tool.exe --clobber
+          fi
+          if [ -f build/bin/ssh-tool ]; then
+            gh release upload "$TAG" build/bin/ssh-tool --clobber
+          fi
