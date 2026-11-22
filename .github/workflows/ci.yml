@@ -44,11 +44,11 @@ jobs:
           cache-dependency-path: ssh-tool/frontend/pnpm-lock.yaml
 
       # WebKitGTK 4.1 开发包:Ubuntu 24.04 runner 只有 4.1,构建需 -tags webkit2_41
-      - name: 安装 Linux 构建依赖(GTK3 / WebKitGTK 4.1 / CGO)
+      - name: 安装 Linux 构建依赖(GTK3 / WebKitGTK 4.1 / CGO / deb 打包)
         if: runner.os == 'Linux'
         run: |
           sudo apt-get update
-          sudo apt-get install -y --no-install-recommends libgtk-3-dev libwebkit2gtk-4.1-dev pkg-config
+          sudo apt-get install -y --no-install-recommends libgtk-3-dev libwebkit2gtk-4.1-dev pkg-config python3-gi dpkg-dev
 
       - name: 安装 Wails CLI v2.12.0
         run: go install github.com/wailsapp/wails/v2/cmd/wails@v2.12.0
@@ -74,6 +74,12 @@ jobs:
       - name: wails build (Linux)
         if: runner.os == 'Linux'
         run: wails build -s -skipbindings -tags webkit2_41
+
+      # tag 触发时打 .deb:版本号取自 tag(去 v 前缀);runner 的 python3 与 apt 装的
+      # python3-gi 同源,无本机多版本错配问题
+      - name: 打包 .deb (Linux,仅 tag)
+        if: runner.os == 'Linux' && startsWith(github.ref, 'refs/tags/')
+        run: SSH_TOOL_DEB_VERSION="${GITHUB_REF_NAME#v}" bash build/linux/package-deb.sh
 
       - name: 上传构建产物（普通提交）
         if: "!startsWith(github.ref, 'refs/tags/')"
@@ -101,4 +107,7 @@ jobs:
             gh release upload "$TAG" build/bin/ssh-tool.exe --clobber
           else
             gh release upload "$TAG" build/bin/ssh-tool --clobber
+            if [ -f build/deb/SHA256SUMS ]; then
+              gh release upload "$TAG" build/deb/ssh-tool_*_amd64.deb build/deb/SHA256SUMS --clobber
+            fi
           fi
