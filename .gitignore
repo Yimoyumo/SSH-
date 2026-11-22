@@ -10,11 +10,15 @@ go.work
 
 # === Node / 前端 ===
 node_modules/
-frontend/dist/
+**/frontend/dist/
 **/pnpm-store/
+.pnpm-store/
+*.tsbuildinfo
+.env
+.env.*
 
 # === Wails 构建产物 ===
-ssh-tool/build/bin/
+**/build/bin/
 ssh-tool/build/windows/
 **/*.syso
 
@@ -26,6 +30,7 @@ ssh-tool/build/windows/
 *~
 .DS_Store
 Thumbs.db
+desktop.ini
 
 # === 日志 / 运行时 ===
 *.log
@@ -33,6 +38,7 @@ ssh-tool/app.log
 
 # === OpenCode / Agent 工作目录 ===
 .omo/
+.mimosa/
 
 # === 临时文件 ===
 *.tmp

@@ -57,8 +57,11 @@ jobs:
           pnpm install --frozen-lockfile
           pnpm run build
 
+      # unsafeptr 关闭:vault_windows.go 的 DPAPI blob 指针由 CryptProtectData 分配,
+      # 存于 uintptr 字段(避免 GC 扫描非 Go 内存),uintptr→unsafe.Pointer 是 Win32
+      # 互操作标准模式,vet 无法识别,属可解释误报;其余 vet 检查全部保留。
       - name: go vet
-        run: go vet ./...
+        run: go vet -unsafeptr=false ./...
 
       # 平台拆分后 Windows/Linux 两侧均原生编译,无需交叉编译
       - name: wails build (Windows)
