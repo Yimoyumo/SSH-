@@ -95,11 +95,10 @@ jobs:
         run: |
           TAG="${{ github.ref_name }}"
           gh release create "$TAG" --verify-tag --title "$TAG" --generate-notes || true
-          # gh release upload 的参数是 glob pattern,传不存在的路径会报
-          # "no matches found" 并 exit 1,故按平台文件存在与否分别上传
-          if [ -f build/bin/ssh-tool.exe ]; then
+          # 产物名按 runner 平台定:不能用 [ -f ] 判断——Git Bash(MSYS)的 stat
+          # 会把无扩展名路径自动匹配到 .exe,而 native gh 不做此补全
+          if [ "$RUNNER_OS" = "Windows" ]; then
             gh release upload "$TAG" build/bin/ssh-tool.exe --clobber
-          fi
-          if [ -f build/bin/ssh-tool ]; then
+          else
             gh release upload "$TAG" build/bin/ssh-tool --clobber
           fi
