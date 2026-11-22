@@ -3,6 +3,7 @@ name: CI
 on:
   push:
     branches: [master, windows-port, linux-port]
+    tags: ["v*"]
   pull_request:
     branches: [master, windows-port]
   workflow_dispatch:
@@ -16,6 +17,8 @@ jobs:
         os: [windows-latest, ubuntu-latest]
     runs-on: ${{ matrix.os }}
     timeout-minutes: 20
+    permissions:
+      contents: write # tag 触发时上传 Release 需要
     defaults:
       run:
         working-directory: ssh-tool
@@ -72,7 +75,8 @@ jobs:
         if: runner.os == 'Linux'
         run: wails build -s -skipbindings -tags webkit2_41
 
-      - name: 上传构建产物
+      - name: 上传构建产物（普通提交）
+        if: "!startsWith(github.ref, 'refs/tags/')"
         uses: actions/upload-artifact@v4
         with:
           name: ssh-tool-${{ runner.os }}
@@ -81,3 +85,12 @@ jobs:
             ssh-tool/build/bin/ssh-tool
           if-no-files-found: error
           retention-days: 14
+
+      # 推 v* tag 时:构建直接传到对应 Release;两个平台 job 各传各的产物,文件名不冲突
+      - name: 上传到 Release（tag 触发）
+        if: startsWith(github.ref, 'refs/tags/')
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release create "$GITHUB_REF_NAME" --verify-tag --title "$GITHUB_REF_NAME" --generate-notes || true
+          gh release upload "$GITHUB_REF_NAME" build/bin/ssh-tool.exe build/bin/ssh-tool --clobber
