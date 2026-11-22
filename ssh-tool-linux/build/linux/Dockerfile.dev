@@ -1,0 +1,74 @@
+# syntax=docker/dockerfile:1
+# Linux development/build environment for ssh-tool (Wails v2 + Go + React).
+# Target platform per docs/linux-port-execution-plan.md: Ubuntu 24.04 x86_64,
+# GTK3 + WebKitGTK 4.1 (build with `-tags webkit2_41`).
+#
+# Build from the ssh-tool/ directory:
+#   docker build -f build/linux/Dockerfile.dev \
+#     --build-arg USER_UID=$(id -u) --build-arg USER_GID=$(id -g) \
+#     -t ssh-tool-dev:noble .
+FROM ubuntu:24.04
+
+ARG DEBIAN_FRONTEND=noninteractive
+ARG APT_MIRROR=mirrors.tuna.tsinghua.edu.cn
+ARG GO_VERSION=1.25.14
+ARG NODE_VERSION=24.22.2
+ARG PNPM_VERSION=10.34.9
+ARG WAILS_VERSION=v2.12.0
+ARG USER_UID=1000
+ARG USER_GID=1000
+
+# Use the same APT mirror as the host; archive.ubuntu.com is slow from this network.
+RUN sed -i \
+        -e "s|http://archive.ubuntu.com/ubuntu/|http://${APT_MIRROR}/ubuntu/|g" \
+        -e "s|http://security.ubuntu.com/ubuntu/|http://${APT_MIRROR}/ubuntu/|g" \
+        /etc/apt/sources.list.d/ubuntu.sources
+
+# Wails Linux build deps + runtime libs for GUI testing.
+# gnome-keyring/libsecret-tools provide a Secret Service for credential work (phase 2).
+RUN apt-get update \
+        -o Acquire::Retries=5 -o Acquire::http::Timeout=60 \
+    && apt-get install -y --no-install-recommends \
+        -o Acquire::Retries=5 -o Acquire::http::Timeout=60 \
+        build-essential pkg-config ca-certificates curl git xz-utils file unzip \
+        libgtk-3-dev libwebkit2gtk-4.1-dev \
+        libgl1-mesa-dri fonts-noto-cjk \
+        dbus-x11 gnome-keyring libsecret-tools
+# Note: /var/lib/apt/lists is kept because `wails doctor` shells out to `apt list`.
+
+# Go toolchain (go.dev is unreachable from this network).
+RUN curl -fsSL "https://mirrors.aliyun.com/golang/go${GO_VERSION}.linux-amd64.tar.gz" \
+        | tar -C /usr/local -xz
+
+# Node.js + pnpm (frontend lockfile is pnpm v9 format, so pnpm >= 9 is required).
+# PATH is set first: npm's shebang is `#!/usr/bin/env node`.
+ENV PATH="/opt/node/bin:/usr/local/go/bin:${PATH}"
+RUN mkdir -p /opt/node \
+    && curl -fsSL "https://mirrors.aliyun.com/nodejs-release/v${NODE_VERSION}/node-v${NODE_VERSION}-linux-x64.tar.xz" \
+        -o /tmp/node.tar.xz \
+    && tar -xJf /tmp/node.tar.xz -C /opt/node --strip-components=1 \
+    && rm /tmp/node.tar.xz \
+    && npm install -g pnpm@${PNPM_VERSION}
+
+# Wails CLI pinned to the version required by go.mod.
+RUN GOBIN=/usr/local/bin GOPROXY=https://goproxy.cn,direct \
+        go install "github.com/wailsapp/wails/v2/cmd/wails@${WAILS_VERSION}"
+
+# Unprivileged user matching the host uid/gid so bind-mounted files stay editable.
+RUN userdel -r ubuntu 2>/dev/null || true; \
+    groupdel ubuntu 2>/dev/null || true; \
+    groupadd --gid ${USER_GID} dev && \
+    useradd --uid ${USER_UID} --gid ${USER_GID} --create-home --shell /bin/bash dev && \
+    mkdir -p /home/dev/.xdg-runtime && chmod 700 /home/dev/.xdg-runtime && \
+    chown -R dev:dev /home/dev/.xdg-runtime && \
+    mkdir -p /workspace && chown dev:dev /workspace
+
+ENV CGO_ENABLED=1 \
+    GOPROXY=https://goproxy.cn,direct \
+    GOTOOLCHAIN=local \
+    GOPATH=/home/dev/go
+
+USER dev
+WORKDIR /workspace
+
+CMD ["/bin/bash"]

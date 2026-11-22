@@ -1,0 +1,81 @@
+/* ConnectDialog — 模态对话框基础样式 */
+.modal-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.6);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 100;
+}
+.modal {
+  background: var(--bg-panel);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  width: 420px;
+  max-width: 90vw;
+  padding: 24px;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4);
+}
+.modal h2 {
+  margin: 0 0 20px;
+  font-size: 16px;
+  font-weight: 500;
+}
+.modal .field {
+  margin-bottom: 14px;
+}
+.modal .field label {
+  display: block;
+  margin-bottom: 4px;
+  font-size: 12px;
+  color: var(--text-dim);
+}
+.modal .field input,
+.modal .field select {
+  width: 100%;
+}
+.modal .field-row {
+  display: flex;
+  gap: 12px;
+}
+.modal .field-row .field {
+  flex: 1;
+}
+.modal-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+  margin-top: 20px;
+}
+
+/* 必填标记 */
+.modal .field label .req {
+  color: var(--danger);
+  margin-left: 2px;
+}
+
+/* 认证方式分段选项(替代原生下拉:弹出层跟随系统主题,配色不可控) */
+.auth-switch {
+  display: flex;
+  gap: 4px;
+}
+.auth-switch button {
+  flex: 1;
+  padding: 6px 0;
+  background: var(--bg-elevated);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  color: var(--text-dim);
+}
+.auth-switch button:hover {
+  background: var(--bg-hover);
+  border-color: var(--accent-dim);
+  color: var(--text);
+}
+.auth-switch button.active {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: #0d0d0d;
+  font-weight: 500;
+}

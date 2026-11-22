@@ -1,0 +1,4 @@
+build/bin
+build/deb
+node_modules
+frontend/dist
