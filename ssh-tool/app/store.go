@@ -13,7 +13,7 @@ import (
 // ConnectionConfig 是一条 SSH 连接配置(明文部分),由 store.go 持久化。
 type ConnectionConfig struct {
 	ID       string `json:"id"`
-	Name     string `json:"name"`     // 显示名
+	Name     string `json:"name"` // 显示名
 	Host     string `json:"host"`
 	Port     int    `json:"port"`
 	User     string `json:"user"`
@@ -114,4 +114,3 @@ func (s *store) Delete(id string) error {
 	}
 	return errors.New("not found")
 }
-

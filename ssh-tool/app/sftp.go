@@ -8,6 +8,7 @@ import (
 	"os"
 	"path/filepath"
 	"sync"
+	"time"
 
 	"github.com/pkg/sftp"
 )
@@ -115,17 +116,20 @@ func containsSlash(s string) bool {
 }
 
 // streamCopy 分块复制并推送进度。事件名 sftp:progress:<jobID>,payload [written, total]。
+// 高频进度事件会淹没前端事件循环,按 100ms 节流,传输结束时必发一次。
 func streamCopy(dst io.Writer, src io.Reader, total int64, jobID string, ctx context.Context) (int64, error) {
 	buf := make([]byte, 64*1024)
 	var written int64
 	event := "sftp:progress:" + jobID
+	last := time.Now()
 	for {
 		n, err := src.Read(buf)
 		if n > 0 {
 			nw, werr := dst.Write(buf[:n])
 			written += int64(nw)
-			if total > 0 {
+			if total > 0 && time.Since(last) >= 100*time.Millisecond {
 				pushEvent(ctx, event, written, total)
+				last = time.Now()
 			}
 			if werr != nil {
 				return written, werr

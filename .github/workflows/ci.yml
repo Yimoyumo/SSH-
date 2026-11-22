@@ -1,0 +1,96 @@
+name: CI
+
+on:
+  push:
+    branches: [master, windows-port, linux-port]
+    tags: ["v*"]
+  pull_request:
+    branches: [master, windows-port]
+  workflow_dispatch:
+
+jobs:
+  build:
+    name: Build (${{ matrix.os }})
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [windows-latest, ubuntu-latest]
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 20
+    permissions:
+      contents: write # tag 触发时上传 Release 需要
+    defaults:
+      run:
+        working-directory: ssh-tool
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: 安装 Go 1.25
+        uses: actions/setup-go@v5
+        with:
+          go-version: "1.25"
+
+      - name: 安装 pnpm 11
+        uses: pnpm/action-setup@v4
+        with:
+          version: 11
+
+      - name: 安装 Node 22
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+          cache-dependency-path: ssh-tool/frontend/pnpm-lock.yaml
+
+      # WebKitGTK 4.1 开发包:Ubuntu 24.04 runner 只有 4.1,构建需 -tags webkit2_41
+      - name: 安装 Linux 构建依赖(GTK3 / WebKitGTK 4.1 / CGO)
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends libgtk-3-dev libwebkit2gtk-4.1-dev pkg-config
+
+      - name: 安装 Wails CLI v2.12.0
+        run: go install github.com/wailsapp/wails/v2/cmd/wails@v2.12.0
+
+      # main.go embed frontend/dist,先构建前端再跑 go vet
+      - name: 前端构建 (pnpm install + tsc + vite)
+        working-directory: ssh-tool/frontend
+        run: |
+          pnpm install --frozen-lockfile
+          pnpm run build
+
+      # unsafeptr 关闭:vault_windows.go 的 DPAPI blob 指针由 CryptProtectData 分配,
+      # 存于 uintptr 字段(避免 GC 扫描非 Go 内存),uintptr→unsafe.Pointer 是 Win32
+      # 互操作标准模式,vet 无法识别,属可解释误报;其余 vet 检查全部保留。
+      - name: go vet
+        run: go vet -unsafeptr=false ./...
+
+      # 平台拆分后 Windows/Linux 两侧均原生编译,无需交叉编译
+      - name: wails build (Windows)
+        if: runner.os == 'Windows'
+        run: wails build -s -skipbindings
+
+      - name: wails build (Linux)
+        if: runner.os == 'Linux'
+        run: wails build -s -skipbindings -tags webkit2_41
+
+      - name: 上传构建产物（普通提交）
+        if: "!startsWith(github.ref, 'refs/tags/')"
+        uses: actions/upload-artifact@v4
+        with:
+          name: ssh-tool-${{ runner.os }}
+          path: |
+            ssh-tool/build/bin/ssh-tool.exe
+            ssh-tool/build/bin/ssh-tool
+          if-no-files-found: error
+          retention-days: 14
+
+      # 推 v* tag 时:构建直接传到对应 Release;两个平台 job 各传各的产物,文件名不冲突
+      - name: 上传到 Release（tag 触发）
+        if: startsWith(github.ref, 'refs/tags/')
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release create "$GITHUB_REF_NAME" --verify-tag --title "$GITHUB_REF_NAME" --generate-notes || true
+          gh release upload "$GITHUB_REF_NAME" build/bin/ssh-tool.exe build/bin/ssh-tool --clobber

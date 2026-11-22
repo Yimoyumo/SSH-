@@ -10,7 +10,13 @@ export function Connect(arg1:app.ConnectionConfig):Promise<string>;
 
 export function DeleteConnection(arg1:string):Promise<void>;
 
+export function DownloadFont(arg1:string):Promise<app.CustomFont>;
+
+export function GetSettings():Promise<app.Settings>;
+
 export function ListConnections():Promise<Array<app.ConnectionConfig>>;
+
+export function ListCustomFonts():Promise<Array<app.CustomFont>>;
 
 export function LogError(arg1:string):Promise<void>;
 
@@ -29,6 +35,8 @@ export function ResizeTerminal(arg1:string,arg2:number,arg3:number):Promise<void
 export function SaveConnection(arg1:app.ConnectionConfig):Promise<string>;
 
 export function SaveFileDialog(arg1:string,arg2:string):Promise<string>;
+
+export function SaveSettings(arg1:app.Settings):Promise<app.Settings>;
 
 export function SftpDelete(arg1:string,arg2:string,arg3:boolean):Promise<void>;
 

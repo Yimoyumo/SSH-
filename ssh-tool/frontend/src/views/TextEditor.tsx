@@ -1,4 +1,4 @@
-﻿import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback } from "react";
 import * as App from "../../wailsjs/go/app/App";
 import "./TextEditor.css";
 
@@ -71,10 +71,9 @@ export default function TextEditor({ sessionID, remotePath, onClose, onSaved, to
   const fileName = remotePath.split("/").pop() || remotePath;
 
   return (
-    <div className="modal-overlay" onClick={requestClose}>
+    <div className="modal-overlay">
       <div
         className="modal editor-modal"
-        onClick={(e) => e.stopPropagation()}
         onKeyDown={onKeyDown}
       >
         <div className="editor-toolbar">
