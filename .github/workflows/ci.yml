@@ -86,11 +86,15 @@ jobs:
           if-no-files-found: error
           retention-days: 14
 
-      # 推 v* tag 时:构建直接传到对应 Release;两个平台 job 各传各的产物,文件名不冲突
+      # 推 v* tag 时:构建直接传到对应 Release;按平台各自产物上传,shell: bash 保证两平台一致
       - name: 上传到 Release（tag 触发）
         if: startsWith(github.ref, 'refs/tags/')
+        shell: bash
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          gh release create "$GITHUB_REF_NAME" --verify-tag --title "$GITHUB_REF_NAME" --generate-notes || true
-          gh release upload "$GITHUB_REF_NAME" build/bin/ssh-tool.exe build/bin/ssh-tool --clobber
+          TAG="${{ github.ref_name }}"
+          gh release create "$TAG" --verify-tag --title "$TAG" --generate-notes || true
+          [ -f build/bin/ssh-tool.exe ] && gh release upload "$TAG" build/bin/ssh-tool.exe --clobber
+          [ -f build/bin/ssh-tool ] && gh release upload "$TAG" build/bin/ssh-tool --clobber
+          exit 0
